@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkPulse — Visit Counter Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #080c14;
+    --bg2: #0e1420;
+    --bg3: #141c2e;
+    --card: #111827;
+    --card2: #1a2235;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(99,179,237,0.3);
+    --text: #f0f4ff;
+    --muted: #8899b4;
+    --accent: #63b3ed;
+    --accent2: #48bb78;
+    --accent3: #f6ad55;
+    --accent4: #fc8181;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+  .blob { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.10; pointer-events: none; z-index: 0; }
+  .blob1 { width: 500px; height: 500px; background: #63b3ed; top: -150px; right: -100px; }
+  .blob2 { width: 400px; height: 400px; background: #48bb78; bottom: -100px; left: -100px; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(8,12,20,0.88);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--accent), #4299e1); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 16px; height: 16px; fill: white; }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .nav-badge { font-size: 11px; font-family: var(--mono); background: rgba(99,179,237,0.12); color: var(--accent); border: 1px solid rgba(99,179,237,0.25); padding: 3px 10px; border-radius: 20px; }
+  .nav-ns { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+
+  main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .page-header { text-align: center; margin-bottom: 48px; }
+  .page-header h1 {
+    font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 10px;
+  }
+  .page-header p { color: var(--muted); font-size: 15px; }
+
+  /* ── DEPLOY BANNER ── */
+  .deploy-banner {
+    background: rgba(99,179,237,0.07);
+    border: 1px solid rgba(99,179,237,0.2);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-size: 13px; color: var(--muted); line-height: 1.6;
+  }
+  .deploy-banner svg { flex-shrink: 0; color: var(--accent); }
+  .deploy-banner strong { color: var(--text); }
+  .deploy-banner code { font-family: var(--mono); font-size: 12px; background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 4px; color: var(--accent); }
+
+  .input-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; margin-bottom: 32px; }
+  .input-card h2 { font-size: 15px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px; }
+  .url-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .url-input-wrap { flex: 1; min-width: 220px; position: relative; }
+  .url-input-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  #urlInput {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 12px 16px 12px 44px; outline: none; transition: border-color 0.2s;
+  }
+  #urlInput::placeholder { color: var(--muted); }
+  #urlInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,179,237,0.1); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #4299e1); color: #000;
+    font-family: var(--font); font-size: 14px; font-weight: 600;
+    border: none; border-radius: var(--radius-sm); padding: 12px 24px;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.2s, transform 0.1s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: transparent; color: var(--text); font-family: var(--font);
+    font-size: 14px; font-weight: 500; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 20px; cursor: pointer;
+    white-space: nowrap; transition: background 0.2s, border-color 0.2s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-secondary:hover { background: var(--bg3); border-color: var(--border2); }
+  .btn-secondary:disabled { opacity: 0.4; cursor: default; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 500px) { .stats-row { grid-template-columns: 1fr 1fr; } .stats-row .stat-card:last-child { grid-column: 1/-1; } }
+
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.visits::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .stat-card.today::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .stat-card.links::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+  .stat-value { font-size: 32px; font-weight: 700; font-family: var(--mono); letter-spacing: -1px; line-height: 1; }
+  .stat-card.visits .stat-value { color: var(--accent); }
+  .stat-card.today .stat-value { color: var(--accent2); }
+  .stat-card.links .stat-value { color: var(--accent3); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+  .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .chart-bar { width: 100%; background: linear-gradient(180deg, var(--accent), rgba(99,179,237,0.3)); border-radius: 4px 4px 0 0; transition: height 0.6s cubic-bezier(0.34,1.56,0.64,1); min-height: 4px; cursor: pointer; }
+  .chart-bar:hover { opacity: 0.85; }
+  .chart-day { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+  @media (max-width: 780px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+  .table-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-header h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+  .table-header span { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); text-align: left; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); }
+  tbody td { padding: 14px 20px; font-size: 13px; vertical-align: middle; }
+
+  .link-url { font-family: var(--mono); font-size: 12px; color: var(--accent); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .link-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .visit-count { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--accent2); display: flex; align-items: center; }
+
+  .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent2); margin-right: 6px; animation: pulse 2s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+  .btn-icon { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 5px 8px; cursor: pointer; transition: all 0.15s; font-size: 12px; }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .action-row { display: flex; gap: 6px; align-items: center; }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
+  .empty-state p { font-size: 14px; }
+
+  .qr-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; text-align: center; }
+  .qr-card h3 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 20px; }
+  #qrContainer { background: white; border-radius: 12px; padding: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; min-height: 160px; min-width: 160px; }
+  .qr-placeholder { color: #aaa; font-size: 13px; text-align: center; padding: 20px; }
+  .qr-placeholder svg { margin-bottom: 8px; opacity: 0.4; display: block; margin-left: auto; margin-right: auto; }
+  .qr-url-label { font-family: var(--mono); font-size: 11px; color: var(--muted); word-break: break-all; margin-bottom: 16px; line-height: 1.5; }
+  .qr-track-url { font-family: var(--mono); font-size: 10px; color: rgba(99,179,237,0.5); word-break: break-all; margin-bottom: 12px; line-height: 1.5; }
+  .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 40px; font-size: 13px; font-weight: 500; z-index: 999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 8px 32px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); }
+
+  @media (max-width: 600px) {
+    main { padding: 24px 16px 60px; }
+    .input-card { padding: 20px; }
+    .url-row { flex-direction: column; }
+    .url-row .btn-primary, .url-row .btn-secondary { width: 100%; justify-content: center; }
+    thead th:nth-child(3), tbody td:nth-child(3) { display: none; }
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* spinning refresh indicator */
+  .refreshing { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── JSON data toolbar ── */
+  .data-toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 20px; margin-bottom: 20px;
+  }
+  .data-toolbar-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--muted); margin-right: 4px; white-space: nowrap;
+  }
+  .data-toolbar .spacer { flex: 1; }
+  .data-status {
+    font-size: 11px; font-family: var(--mono); color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .data-status .dot-saved { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); display: inline-block; }
+  .data-status .dot-unsaved { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); display: inline-block; animation: pulse 1.5s infinite; }
+  .btn-sm {
+    background: transparent; color: var(--text); font-family: var(--font);
+    font-size: 12px; font-weight: 500; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 7px 14px; cursor: pointer;
+    white-space: nowrap; transition: background 0.2s, border-color 0.2s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-sm:hover { background: var(--bg3); border-color: var(--border2); }
+  .btn-sm.accent { border-color: rgba(99,179,237,0.4); color: var(--accent); }
+  .btn-sm.accent:hover { background: rgba(99,179,237,0.08); }
+  #fileInput { display: none; }
+</style>
+</head>
+<body>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<nav>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm1 2.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-.5 2.5v4h-1V8h1z"/></svg>
+    </div>
+    LinkPulse
+  </div>
+  <div class="nav-right">
+    <span class="nav-ns" id="navNs"></span>
+    <div class="nav-badge"><span class="live-dot"></span>STATIC</div>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <h1>Track every visit, instantly</h1>
+    <p>100% static — deploy free on GitHub Pages. QR scans count automatically.</p>
+  </div>
+
+  <!-- Deploy info banner -->
+  <div class="deploy-banner">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    <div>
+      <strong>GitHub Pages setup:</strong> Upload <code>index.html</code> and <code>visit.html</code> to a repo → Settings → Pages → Deploy from main branch.
+      Your links are stored in a <code>links.json</code> file that you download locally — load it back anytime to restore your data across devices.
+    </div>
+  </div>
+
+  <!-- Base URL config -->
+  <div class="input-card" style="margin-bottom: 16px; padding: 20px 32px;">
+    <h2 style="margin-bottom: 12px;">Your GitHub Pages URL</h2>
+    <div class="url-row">
+      <div class="url-input-wrap" style="flex: 1;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg>
+        <input id="baseUrlInput" type="url" placeholder="https://yourname.github.io/yourrepo" autocomplete="off"
+          style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--mono);font-size:13px;padding:12px 16px 12px 44px;outline:none;" />
+      </div>
+      <button class="btn-primary" onclick="saveBaseUrl()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        Save
+      </button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">Currently using: <span id="currentBaseUrl" style="font-family:var(--mono);color:var(--accent);"></span></div>
+  </div>
+
+  <!-- JSON data toolbar -->
+  <div class="data-toolbar">
+    <span class="data-toolbar-label">Data file</span>
+    <button class="btn-sm accent" onclick="exportJSON()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Save links.json
+    </button>
+    <button class="btn-sm" onclick="document.getElementById('fileInput').click()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Load links.json
+    </button>
+    <input type="file" id="fileInput" accept=".json,application/json" onchange="importJSON(event)" />
+    <div class="spacer"></div>
+    <div class="data-status" id="dataStatus">
+      <span class="dot-saved"></span> No changes
+    </div>
+  </div>
+
+  <!-- Add link card -->
+  <div class="input-card">
+    <h2>Add a Link</h2>
+    <div class="url-row">
+      <div class="url-input-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <input id="urlInput" type="url" placeholder="https://your-link.com" autocomplete="off" />
+      </div>
+      <button class="btn-primary" onclick="addLink()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Add &amp; Generate QR
+      </button>
+      <button class="btn-secondary" onclick="refreshAllCounts()">
+        <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh Counts
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card visits">
+      <div class="stat-label">Total Visits</div>
+      <div class="stat-value" id="totalVisits">0</div>
+      <div class="stat-sub">All time (live API)</div>
+    </div>
+    <div class="stat-card today">
+      <div class="stat-label">Today</div>
+      <div class="stat-value" id="todayVisits">0</div>
+      <div class="stat-sub">Since midnight</div>
+    </div>
+    <div class="stat-card links">
+      <div class="stat-label">Links</div>
+      <div class="stat-value" id="linkCount">0</div>
+      <div class="stat-sub">Being tracked</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-card">
+    <div class="chart-title">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Visit activity — last 7 days (today's real count + estimated history)
+    </div>
+    <div class="chart-bars" id="chartBars"></div>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+    <div>
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Tracked Links</h3>
+          <span id="lastRefreshLabel">Never refreshed</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Link</th>
+              <th>Visits</th>
+              <th>Added</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="linksBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- QR Panel -->
+    <div>
+      <div class="qr-card">
+        <h3>QR Code</h3>
+        <div id="qrContainer">
+          <div class="qr-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="1.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 17h3"/></svg>
+            <p>Select a link to<br>generate QR code</p>
+          </div>
+        </div>
+        <div class="qr-url-label" id="qrUrlLabel">—</div>
+        <div class="qr-track-url" id="qrTrackUrl"></div>
+        <div class="qr-actions">
+          <button class="btn-secondary" onclick="downloadQR()" id="btnDownload" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download PNG
+          </button>
+          <button class="btn-secondary" onclick="copyQRLink()" id="btnCopyLink" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy URL
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast"><span class="toast-dot"></span><span id="toastMsg">Copied!</span></div>
+
+<script>
+// ─── Namespace (unique per user, stored in localStorage) ──────────────────
+const NS = 'lp-' + (localStorage.getItem('lp_ns') || (() => {
+  const id = Math.random().toString(36).slice(2, 8);
+  localStorage.setItem('lp_ns', id);
+  return id;
+})());
+
+document.getElementById('navNs').textContent = 'ID: ' + NS;
+
+// ─── Base URL (where this app is deployed) ─────────────────────────────────
+function getBaseUrl() {
+  return (localStorage.getItem('lp_baseurl') || '').replace(/\/$/, '') || window.location.origin;
+}
+
+function saveBaseUrl() {
+  const val = document.getElementById('baseUrlInput').value.trim().replace(/\/$/, '');
+  if (!val) { showToast('Please enter your GitHub Pages URL', '⚠'); return; }
+  localStorage.setItem('lp_baseurl', val);
+  document.getElementById('currentBaseUrl').textContent = val;
+  showToast('Base URL saved — regenerate QR codes');
+  renderTable();
+}
+
+function initBaseUrl() {
+  const saved = localStorage.getItem('lp_baseurl') || '';
+  document.getElementById('baseUrlInput').value = saved;
+  document.getElementById('currentBaseUrl').textContent = saved || window.location.origin + ' (current origin)';
+}
+
+// ─── CountAPI helpers ─────────────────────────────────────────────────────
+// CountAPI.xyz: free, no auth, persistent global counter per namespace+key
+// GET https://api.countapi.xyz/get/:namespace/:key  → { value: N }
+// GET https://api.countapi.xyz/hit/:namespace/:key  → { value: N }
+// GET https://api.countapi.xyz/set/:namespace/:key?value=N → { value: N }
+// All requests are CORS-friendly (no-cors not needed for GET).
+
+function urlToKey(url) {
+  // stable short hash → safe key
+  let h = 0;
+  for (let i = 0; i < url.length; i++) h = (Math.imul(31, h) + url.charCodeAt(i)) | 0;
+  return 'k' + Math.abs(h).toString(36);
+}
+
+async function apiGet(url) {
+  try {
+    const key = urlToKey(url);
+    const r = await fetch(`https://api.countapi.xyz/get/${encodeURIComponent(NS)}/${key}`);
+    const d = await r.json();
+    return d.value || 0;
+  } catch { return 0; }
+}
+
+// ─── Today visits from localStorage (written by visit.html) ──────────────
+function getTodayLocal(url) {
+  try {
+    const key = 'lp_today_' + NS + '-' + urlToKey(url);
+    const stored = JSON.parse(localStorage.getItem(key) || '{}');
+    return stored[new Date().toDateString()] || 0;
+  } catch { return 0; }
+}
+
+// ─── Links storage — in-memory, persisted via JSON file export/import ────
+// _links is the single source of truth while the page is open.
+// On every mutation we mark as unsaved and prompt the user to Save links.json.
+// On load we try to auto-load from localStorage session cache (so a page
+// refresh doesn't wipe data), but the canonical store is always the JSON file.
+
+let _links = [];
+let _unsaved = false;
+
+function loadLinks() { return _links; }
+
+function saveLinksLocal(links) {
+  _links = links;
+  // Mirror to sessionStorage so a page refresh within the same tab restores data
+  try { sessionStorage.setItem('lp_session_links', JSON.stringify({ ns: NS, links })); } catch {}
+  markUnsaved();
+}
+
+function markUnsaved() {
+  _unsaved = true;
+  document.getElementById('dataStatus').innerHTML =
+    '<span class="dot-unsaved"></span> Unsaved changes — click <strong style="color:var(--accent3)">Save links.json</strong>';
+}
+function markSaved() {
+  _unsaved = false;
+  document.getElementById('dataStatus').innerHTML =
+    '<span class="dot-saved"></span> Saved to links.json';
+}
+
+// ─── Export JSON ──────────────────────────────────────────────────────────
+function exportJSON() {
+  const payload = {
+    _meta: { ns: NS, baseUrl: getBaseUrl(), exported: new Date().toISOString(), version: 1 },
+    links: _links
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'links.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  markSaved();
+  showToast('links.json downloaded — keep it safe!');
+}
+
+// ─── Import JSON ──────────────────────────────────────────────────────────
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Accept both { links: [...] } format and a bare array
+      const imported = Array.isArray(data) ? data : (data.links || []);
+      if (!Array.isArray(imported)) throw new Error('Invalid format');
+      _links = imported;
+      try { sessionStorage.setItem('lp_session_links', JSON.stringify({ ns: NS, links: _links })); } catch {}
+      // Restore base URL from file if present and not already set
+      if (data._meta?.baseUrl && !localStorage.getItem('lp_baseurl')) {
+        localStorage.setItem('lp_baseurl', data._meta.baseUrl);
+        initBaseUrl();
+      }
+      renderTable();
+      updateStats(_links);
+      updateChart(_links);
+      markSaved();
+      showToast(`Loaded ${_links.length} link${_links.length !== 1 ? 's' : ''} from file`);
+    } catch (err) {
+      showToast('Invalid JSON file');
+    }
+    event.target.value = ''; // reset so same file can be re-imported
+  };
+  reader.readAsText(file);
+}
+
+// ─── Session restore (page refresh safety net) ────────────────────────────
+function restoreSession() {
+  try {
+    const raw = sessionStorage.getItem('lp_session_links');
+    if (!raw) return false;
+    const { ns, links } = JSON.parse(raw);
+    if (ns !== NS || !Array.isArray(links)) return false;
+    _links = links;
+    return true;
+  } catch { return false; }
+}
+
+// ─── Add Link ─────────────────────────────────────────────────────────────
+async function addLink() {
+  const input = document.getElementById('urlInput');
+  let url = input.value.trim();
+  if (!url) { showToast('Please enter a URL'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+  try { new URL(url); } catch { showToast('Invalid URL'); return; }
+
+  const links = loadLinks();
+  if (links.find(l => l.url === url)) { showToast('Already tracked'); selectQR(url); return; }
+
+  const link = {
+    url,
+    label: new URL(url).hostname,
+    added: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+    addedTs: Date.now(),
+    visits: 0,
+    todayVisits: 0
+  };
+
+  links.unshift(link);
+  saveLinksLocal(links);
+  input.value = '';
+  renderTable();
+  selectQR(url);
+  showToast('Link added — save links.json to keep it!');
+
+  // fetch real count from API
+  const count = await apiGet(url);
+  const idx = links.findIndex(l => l.url === url);
+  if (idx !== -1) { links[idx].visits = count; links[idx].todayVisits = getTodayLocal(url); }
+  saveLinksLocal(links);
+  renderTable();
+  updateStats(links);
+  updateChart(links);
+}
+
+// ─── Refresh all counts from CountAPI ────────────────────────────────────
+async function refreshAllCounts() {
+  const links = loadLinks();
+  if (!links.length) { showToast('No links to refresh'); return; }
+
+  document.getElementById('refreshIcon').classList.add('refreshing');
+  document.getElementById('lastRefreshLabel').textContent = 'Refreshing…';
+
+  await Promise.all(links.map(async l => {
+    l.visits = await apiGet(l.url);
+    l.todayVisits = getTodayLocal(l.url);
+  }));
+
+  // Sync to session but don't flip the unsaved flag — counts are live, not edits
+  try { sessionStorage.setItem('lp_session_links', JSON.stringify({ ns: NS, links })); } catch {}
+  renderTable();
+  updateStats(links);
+  updateChart(links);
+  document.getElementById('refreshIcon').classList.remove('refreshing');
+  document.getElementById('lastRefreshLabel').textContent = 'Last: ' + new Date().toLocaleTimeString();
+  showToast('Counts updated from CountAPI');
+}
+
+// ─── Render Table ─────────────────────────────────────────────────────────
+function renderTable() {
+  const links = loadLinks();
+  const tbody = document.getElementById('linksBody');
+
+  if (!links.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <p>No links yet — add one above</p></div></td></tr>`;
+    updateStats([]);
+    return;
+  }
+
+  tbody.innerHTML = links.map(l => `
+    <tr>
+      <td>
+        <span class="link-url" title="${escHtml(l.url)}">${escHtml(l.url)}</span>
+        <span class="link-label">${escHtml(l.label)}</span>
+      </td>
+      <td>
+        <span class="visit-count">
+          <span class="live-dot"></span>${(l.visits || 0).toLocaleString()}
+        </span>
+      </td>
+      <td style="color:var(--muted);font-size:12px;font-family:var(--mono)">${l.added}</td>
+      <td>
+        <div class="action-row">
+          <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="selectQR('${escAttr(l.url)}')">QR Code</button>
+          <button class="btn-icon" onclick="removeLink('${escAttr(l.url)}')" title="Remove" style="color:var(--accent4)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  updateStats(links);
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g, "\\'"); }
+
+// ─── QR Code ──────────────────────────────────────────────────────────────
+let activeQrUrl = null;
+
+function buildVisitUrl(url) {
+  const base = getBaseUrl();
+  return `${base}/visit.html?ns=${encodeURIComponent(NS)}&url=${encodeURIComponent(url)}`;
+}
+
+function selectQR(url) {
+  activeQrUrl = url;
+  const container = document.getElementById('qrContainer');
+  container.innerHTML = '';
+
+  const visitUrl = buildVisitUrl(url);
+
+  try {
+    new QRCode(container, {
+      text: visitUrl,
+      width: 180, height: 180,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  } catch(e) { console.warn('QR error', e); }
+
+  document.getElementById('qrUrlLabel').textContent = url;
+  document.getElementById('qrTrackUrl').textContent = '↳ ' + visitUrl;
+  document.getElementById('btnDownload').disabled = false;
+  document.getElementById('btnCopyLink').disabled = false;
+}
+
+function downloadQR() {
+  if (!activeQrUrl) return;
+  setTimeout(() => {
+    const canvas = document.querySelector('#qrContainer canvas');
+    if (!canvas) { showToast('QR not ready'); return; }
+    const a = document.createElement('a');
+    a.download = 'qrcode.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('QR downloaded');
+  }, 100);
+}
+
+function copyQRLink() {
+  if (!activeQrUrl) return;
+  navigator.clipboard.writeText(buildVisitUrl(activeQrUrl)).then(() => showToast('Tracking URL copied'));
+}
+
+// ─── Remove ───────────────────────────────────────────────────────────────
+function removeLink(url) {
+  if (!confirm('Remove this link?')) return;
+  const links = loadLinks().filter(l => l.url !== url);
+  saveLinksLocal(links);
+  if (activeQrUrl === url) {
+    activeQrUrl = null;
+    document.getElementById('qrContainer').innerHTML = `<div class="qr-placeholder">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="1.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 17h3"/></svg>
+      <p>Select a link to<br>generate QR code</p></div>`;
+    document.getElementById('qrUrlLabel').textContent = '—';
+    document.getElementById('qrTrackUrl').textContent = '';
+    document.getElementById('btnDownload').disabled = true;
+    document.getElementById('btnCopyLink').disabled = true;
+  }
+  renderTable();
+  updateChart(links);
+  showToast('Link removed');
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────
+function updateStats(links) {
+  document.getElementById('totalVisits').textContent = links.reduce((a, l) => a + (l.visits || 0), 0).toLocaleString();
+  document.getElementById('todayVisits').textContent = links.reduce((a, l) => a + (l.todayVisits || 0), 0).toLocaleString();
+  document.getElementById('linkCount').textContent = links.length;
+}
+
+// ─── Chart ────────────────────────────────────────────────────────────────
+function updateChart(links) {
+  const container = document.getElementById('chartBars');
+  const todayTotal = links.reduce((a, l) => a + (l.todayVisits || 0), 0);
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    // For today use real data; past days use stored local timestamps summed across links
+    let val;
+    if (i === 0) {
+      val = todayTotal;
+    } else {
+      const dateStr = d.toDateString();
+      val = links.reduce((sum, l) => {
+        try {
+          const k = 'lp_today_' + NS + '-' + urlToKey(l.url);
+          const stored = JSON.parse(localStorage.getItem(k) || '{}');
+          return sum + (stored[dateStr] || 0);
+        } catch { return sum; }
+      }, 0);
+    }
+    days.push({ label: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0,2), value: val });
+  }
+  const max = Math.max(...days.map(d => d.value), 1);
+  container.innerHTML = days.map(d => `
+    <div class="chart-bar-wrap">
+      <div class="chart-bar" style="height:${Math.max((d.value / max) * 80, 4)}px" title="${d.value} visits"></div>
+      <span class="chart-day">${d.label}</span>
+    </div>
+  `).join('');
+}
+
+function urlToKey(url) {
+  let h = 0;
+  for (let i = 0; i < url.length; i++) h = (Math.imul(31, h) + url.charCodeAt(i)) | 0;
+  return 'k' + Math.abs(h).toString(36);
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  document.getElementById('toastMsg').textContent = msg;
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ─── Enter key ────────────────────────────────────────────────────────────
+document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') addLink(); });
+document.getElementById('baseUrlInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveBaseUrl(); });
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+(async () => {
+  initBaseUrl();
+  const hadSession = restoreSession();
+  renderTable();
+  updateChart(_links);
+
+  if (!hadSession) {
+    // First visit — show a helpful prompt in the status bar
+    document.getElementById('dataStatus').innerHTML =
+      '<span class="dot-saved"></span> Load a <strong>links.json</strong> file or add links above';
+  }
+
+  // Auto-refresh counts on load (silently)
+  if (_links.length) {
+    await Promise.all(_links.map(async l => {
+      l.visits = await apiGet(l.url);
+      l.todayVisits = getTodayLocal(l.url);
+    }));
+    // Don't mark unsaved here — counts are live data, not structural changes
+    _unsaved = false;
+    renderTable();
+    updateChart(_links);
+    document.getElementById('lastRefreshLabel').textContent = 'Last: ' + new Date().toLocaleTimeString();
+  }
+})();
+</script>
+</body>
+</html>
