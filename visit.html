@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting…</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: #080c14;
+    color: #f0f4ff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    padding: 24px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(99,179,237,0.2);
+    border-top-color: #63b3ed;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  p { color: #8899b4; font-size: 14px; max-width: 320px; line-height: 1.6; }
+  .dest { color: #63b3ed; font-size: 13px; font-family: monospace; margin-top: 4px; word-break: break-all; }
+  .err { color: #fc8181; font-size: 13px; margin-top: 8px; }
+  a { color: #63b3ed; }
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<div>
+  <p>Counting your visit &amp; redirecting…</p>
+  <div class="dest" id="destLabel"></div>
+  <div class="err" id="errMsg"></div>
+</div>
+
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const url = params.get('url');
+  const ns  = params.get('ns') || 'linkpulse';
+
+  if (!url) {
+    document.getElementById('errMsg').textContent = 'No destination URL provided.';
+    return;
+  }
+
+  document.getElementById('destLabel').textContent = url;
+
+  // ── Key: hash the URL to a short safe string ──────────────────────────
+  function simpleHash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h).toString(36);
+  }
+
+  const key = ns + '-' + simpleHash(url);
+
+  // ── Hit CountAPI (free, no account needed) ────────────────────────────
+  // namespace = linkpulse-YOURID, key = hash of URL
+  // CountAPI allows hits from any origin — perfect for static sites
+  try {
+    await fetch(`https://api.countapi.xyz/hit/${encodeURIComponent(key)}/${encodeURIComponent(key)}`, {
+      mode: 'no-cors'   // fire-and-forget; we don't need the response here
+    });
+  } catch (_) { /* ignore — still redirect */ }
+
+  // ── Also store a local timestamp so dashboard can compute "today" ─────
+  // The dashboard reads counts from CountAPI and today-timestamps from localStorage
+  try {
+    const todayKey = 'lp_today_' + key;
+    const stored = JSON.parse(localStorage.getItem(todayKey) || '{}');
+    const d = new Date().toDateString();
+    stored[d] = (stored[d] || 0) + 1;
+    localStorage.setItem(todayKey, JSON.stringify(stored));
+  } catch (_) {}
+
+  // Redirect after tiny delay so spinner is visible
+  setTimeout(() => { location.replace(url); }, 600);
+})();
+</script>
+</body>
+</html>
